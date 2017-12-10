@@ -1,0 +1,106 @@
+---
+title: "Reproducible Research - Project 1"
+author: "Hayden Roche"
+date: "December 7, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+setwd("/Users/hroche/Coursera/Coursera/")
+Project_data <- read.csv("activity.csv")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##Total Number of Steps Taken Each Day
+```{r dailysteps}
+Histo <-  Project_data %>%
+  group_by(date) %>%
+  summarise(Total_Steps = sum(steps))
+
+g <- ggplot(Histo, aes(x = Total_Steps)) +
+  geom_histogram(fill = "orange") +
+  labs(title = "Steps Per Day", x = "Date", y = "Frequency")
+print(g)
+```
+
+
+##Mean and median number of steps taken each day
+```{r mean_and_median}
+Mean <- mean(Histo$Total_Steps, na.rm = TRUE)
+Mean  
+Median <- median(Histo$Total_Steps, na.rm = TRUE)
+Median
+```
+
+##Time series: average number of steps per day
+```{r time_series}
+Time_Series <- Project_data %>%
+  group_by(interval) %>%
+  filter(!is.na(steps)) %>%
+  summarise(Average = mean(steps, na.rm = TRUE))
+
+g <- ggplot(Time_Series, aes(x = interval, y = Average)) +
+  geom_line(color="purple") +
+  labs(title = "Average Number of Steps Taken by Interval", y = "Average Daily Steps")
+print(g)
+```
+
+
+This 5-minute interval on average contains the maximum number of steps
+```{r interval_max}
+Time_Series[which.max(Time_Series$Average),]
+```
+
+
+##Imputing Values
+```{r impute}
+sum(is.na(Project_data$steps))
+
+Imputing_Values <- Time_Series$Average[match(Project_data$interval, Time_Series$interval)]
+Fill_Tha_Data <- transform(Project_data, steps = ifelse(is.na(Project_data$steps), yes = Imputing_Values, no = Project_data$steps))
+
+Imputed_Histo <-  Fill_Tha_Data %>%
+  group_by(date) %>%
+  summarise(Total_Steps = sum(steps))
+g <- ggplot(Imputed_Histo, aes(x = Total_Steps)) +
+  geom_histogram(fill = "grey") +
+  labs(title = "Steps Per Day", x = "Date", y = "Frequency")
+print(g)
+```
+
+This is where I calculated the difference between the imputed mean/median and the original estimation of mean/median
+```{r imputed_mean_median}
+Imputed_Mean <- mean(Imputed_Histo$Total_Steps)
+Imputed_Mean
+Imputed_Median <- median(Imputed_Histo$Total_Steps)
+Imputed_Median
+
+Mean_Difference <- Imputed_Mean - Mean
+Mean_Difference
+Median_Difference <- Imputed_Median - Median
+Median_Difference
+Total_Step_Difference <- sum(Imputed_Histo$Total_Steps) - sum(Histo$Total_Steps)
+Total_Step_Difference
+```
+
+##Panel Plot: Average Number of Steps Taken (Weekend vs. Weekdays)
+```{r weekendvweekday}
+Project_data$date <- as.Date(strptime(Project_data$date, format = "%Y-%m-%d"))
+Project_data$segment <- sapply(Project_data$date, function(x) {
+  if(weekdays(x) == "Saturday" | weekdays(x) == "Sunday")
+  {y <- "Weekend"} else
+  {y <- "Weekday"}
+  y
+})
+ 
+By_Date_Steps <- aggregate(steps~interval + segment, Project_data, mean, na.rm = TRUE)
+g <- ggplot(By_Date_Steps, aes(x = interval, y = steps)) +
+  geom_line() +
+  labs(title = "Steps Per Day", x = "Date", y = "Frequency") +
+  facet_wrap(~segment, ncol = 1, nrow = 2)
+print(g)
+```
+
